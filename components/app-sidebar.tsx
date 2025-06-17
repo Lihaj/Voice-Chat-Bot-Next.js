@@ -16,30 +16,15 @@ import { NavUser } from "@/components/nav-user"
 // Menu items.
 const items = [
     {
-        title: "Home",
+        title: "Chat one",
         url: "#",
         icon: Home,
     },
     {
-        title: "Inbox",
+        title: "Chat two",
         url: "#",
         icon: Inbox,
-    },
-    {
-        title: "Calendar",
-        url: "#",
-        icon: Calendar,
-    },
-    {
-        title: "Search",
-        url: "#",
-        icon: Search,
-    },
-    {
-        title: "Settings",
-        url: "#",
-        icon: Settings,
-    },
+    }
 ]
 
 // Add your new chat menu item details here
@@ -64,7 +49,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
 
                 <SidebarGroup>
-                    <SidebarGroupLabel>Chat History</SidebarGroupLabel>
+                    <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {items.map((item) => (
