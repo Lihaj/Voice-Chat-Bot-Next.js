@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, Layers, Mic, Send } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Search, Layers, Mic, Send, Languages } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { getTokenOrRefresh } from '@/lib/token_util';
 import axios from 'axios';
@@ -45,6 +51,17 @@ interface ChatResponse {
     message_received?: string;
 }
 
+interface Language {
+    code: string;
+    name: string;
+}
+
+const languages: Language[] = [
+    { code: 'en-US', name: 'English' },
+    { code: 'si-LK', name: 'Sinhala' },
+    { code: 'ta-IN', name: 'Tamil' }
+];
+
 export default function Home() {
     const [token, setToken] = useState<string | null>(null);
     const [sessionId, setSessionId] = useState<string | null>(null);
@@ -54,6 +71,7 @@ export default function Home() {
     const [inputMessage, setInputMessage] = useState<string>('');
     const [isSending, setIsSending] = useState<boolean>(false);
     const [isVoiceInput, setIsVoiceInput] = useState<boolean>(false);
+    const [selectedLanguage, setSelectedLanguage] = useState<Language>(languages[0]);
 
     const [displayText, setDisplayText] = useState<string>('Ask me anything....');
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -87,7 +105,7 @@ export default function Home() {
             const chatRequest: ChatRequest = {
                 Message: messageText,
                 IsVoice: isVoiceInput,
-                Language: "en"
+                Language: selectedLanguage.code
             };
 
             console.log('Sending chat request:', chatRequest);
@@ -157,6 +175,19 @@ export default function Home() {
             }
 
             const speechConfig = speechsdk.SpeechConfig.fromAuthorizationToken(tokenObj.authToken, tokenObj.region);
+
+            // Set voice based on selected language
+            switch (selectedLanguage.code) {
+                case 'si-LK':
+                    speechConfig.speechSynthesisVoiceName = "si-LK-ThiliniNeural";
+                    break;
+                case 'ta-IN':
+                    speechConfig.speechSynthesisVoiceName = "ta-IN-PallaviNeural";
+                    break;
+                default:
+                    speechConfig.speechSynthesisVoiceName = "en-US-JennyNeural";
+            }
+
             const myPlayer = new speechsdk.SpeakerAudioDestination();
 
             updatePlayer(p => ({ p: myPlayer, muted: p.muted }));
@@ -164,7 +195,7 @@ export default function Home() {
 
             let synthesizer = new speechsdk.SpeechSynthesizer(speechConfig, audioConfig);
 
-            console.log(`Speaking text: ${textToSpeak}`);
+            console.log(`Speaking text: ${textToSpeak} in language: ${selectedLanguage.name}`);
 
             synthesizer.speakTextAsync(
                 textToSpeak,
@@ -216,12 +247,12 @@ export default function Home() {
             }
 
             const speechConfig = speechsdk.SpeechConfig.fromAuthorizationToken(tokenObj.authToken, tokenObj.region);
-            speechConfig.speechRecognitionLanguage = 'en-US';
+            speechConfig.speechRecognitionLanguage = selectedLanguage.code;
 
             const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
             const recognizer = new speechsdk.SpeechRecognizer(speechConfig, audioConfig);
 
-            setDisplayText('Listening...');
+            setDisplayText(`Listening in ${selectedLanguage.name}...`);
 
             recognizer.recognizeOnceAsync((result: any) => {
                 if (result.reason === speechsdk.ResultReason.RecognizedSpeech) {
@@ -237,6 +268,11 @@ export default function Home() {
             setDisplayText(`ERROR: ${error}`);
             setIsProcessing(false);
         }
+    };
+
+    const handleLanguageSelect = (language: Language) => {
+        setSelectedLanguage(language);
+        console.log('Language changed to:', language);
     };
 
     useEffect(() => {
@@ -309,8 +345,6 @@ export default function Home() {
                             </div>
                         ))}
 
-
-
                         <div ref={messagesEndRef} />
                     </div>
                 </ScrollArea>
@@ -353,6 +387,33 @@ export default function Home() {
                             </Button>
 
                             <div className="flex-grow"></div>
+
+                            {/* Language Selector Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={isProcessing || isSending || isLoading || !token}
+                                    >
+                                        <Languages className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                    {languages.map((language) => (
+                                        <DropdownMenuItem
+                                            key={language.code}
+                                            onClick={() => handleLanguageSelect(language)}
+                                            className={selectedLanguage.code === language.code ? 'bg-accent' : ''}
+                                        >
+                                            {language.name}
+                                            {selectedLanguage.code === language.code && (
+                                                <span className="ml-auto">✓</span>
+                                            )}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
 
                             <Button
                                 size="icon"
