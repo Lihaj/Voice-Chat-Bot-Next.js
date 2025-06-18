@@ -2,15 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {Card, CardContent, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Search, Layers, Mic, Send } from "lucide-react";
-import React, {useEffect, useRef, useState} from "react";
-import { getTokenOrRefresh} from '@/lib/token_util';
-import {Badge} from "@/components/ui/badge";
+import React, { useEffect, useRef, useState } from "react";
+import { getTokenOrRefresh } from '@/lib/token_util';
+import axios from 'axios';
 
 const speechsdk = require('microsoft-cognitiveservices-speech-sdk');
-
-
 
 interface TokenResponse {
     access_token: string;
@@ -24,14 +23,186 @@ interface TokenObject {
     error?: any;
 }
 
+interface ChatMessage {
+    id: string;
+    content: string;
+    isUser: boolean;
+    timestamp: Date;
+}
+
+interface ChatRequest {
+    Message: string;
+    IsVoice: boolean;
+    Language: string;
+}
+
+interface ChatResponse {
+    message?: string;
+    response?: string;
+    session_id?: string;
+    is_voice?: boolean;
+    language?: string;
+    message_received?: string;
+}
+
 export default function Chat() {
     const [token, setToken] = useState<string | null>(null);
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [inputMessage, setInputMessage] = useState<string>('');
+    const [isSending, setIsSending] = useState<boolean>(false);
+    const [isVoiceInput, setIsVoiceInput] = useState<boolean>(false);
+
     const [displayText, setDisplayText] = useState<string>('Ask me anything....');
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
+    const [player, updatePlayer] = useState<any>({ p: undefined, muted: false });
 
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    const sendMessage = async (messageText: string) => {
+        if (!messageText.trim() || isSending || !token) return;
+
+        const userMessage: ChatMessage = {
+            id: Date.now().toString(),
+            content: messageText,
+            isUser: true,
+            timestamp: new Date()
+        };
+
+        setMessages(prev => [...prev, userMessage]);
+        setInputMessage('');
+        setIsSending(true);
+
+        try {
+            const chatRequest: ChatRequest = {
+                Message: messageText,
+                IsVoice: isVoiceInput,
+                Language: "en"
+            };
+
+            console.log('Sending chat request:', chatRequest);
+
+            const response = await axios.post<ChatResponse>(
+                'https://hayleys-backend-api-v1-dmd4hra3ccaub7c2.canadacentral-01.azurewebsites.net/chat',
+                chatRequest
+            );
+
+            console.log('Complete chat response:', response.data);
+            console.log('Full response object:', response);
+
+            const responseText = response.data.message || response.data.response || 'I received your message but couldn\'t generate a response.';
+
+            const botMessage: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                content: responseText,
+                isUser: false,
+                timestamp: new Date()
+            };
+
+            setMessages(prev => [...prev, botMessage]);
+
+            // Check if response indicates voice output should be played
+            if (response.data.is_voice === true) {
+                console.log('Voice response detected, starting TTS...');
+                await textToSpeech(responseText);
+            }
+
+        } catch (error) {
+            console.error('Error sending message:', error);
+
+            const errorMessage: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                content: 'Sorry, I encountered an error while processing your message. Please try again.',
+                isUser: false,
+                timestamp: new Date()
+            };
+
+            setMessages(prev => [...prev, errorMessage]);
+
+            if (axios.isAxiosError(error)) {
+                console.error('Response status:', error.response?.status);
+                console.error('Response data:', error.response?.data);
+            }
+        } finally {
+            setIsSending(false);
+            // Reset voice input flag after sending
+            setIsVoiceInput(false);
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        sendMessage(inputMessage);
+    };
+
+    const textToSpeech = async (textToSpeak: string): Promise<void> => {
+        try {
+            setIsProcessing(true);
+            const tokenObj: TokenObject = await getTokenOrRefresh();
+
+            if (!tokenObj.authToken) {
+                console.error(`ERROR: Unable to get authorization token. ${tokenObj.error || ''}`);
+                setIsProcessing(false);
+                return;
+            }
+
+            const speechConfig = speechsdk.SpeechConfig.fromAuthorizationToken(tokenObj.authToken, tokenObj.region);
+            const myPlayer = new speechsdk.SpeakerAudioDestination();
+
+            updatePlayer(p => ({ p: myPlayer, muted: p.muted }));
+            const audioConfig = speechsdk.AudioConfig.fromSpeakerOutput(myPlayer);
+
+            let synthesizer = new speechsdk.SpeechSynthesizer(speechConfig, audioConfig);
+
+            console.log(`Speaking text: ${textToSpeak}`);
+
+            synthesizer.speakTextAsync(
+                textToSpeak,
+                (result: any) => {
+                    let text: string;
+                    if (result.reason === speechsdk.ResultReason.SynthesizingAudioCompleted) {
+                        text = `Synthesis finished for "${textToSpeak}".`;
+                        console.log(text);
+                    } else if (result.reason === speechsdk.ResultReason.Canceled) {
+                        text = `Synthesis failed. Error detail: ${result.errorDetails}.`;
+                        console.error(text);
+                    } else {
+                        text = 'Synthesis completed.';
+                        console.log(text);
+                    }
+                    synthesizer.close();
+                    synthesizer = undefined;
+                    setIsProcessing(false);
+                },
+                (err: string) => {
+                    console.error(`TTS Error: ${err}`);
+                    synthesizer.close();
+                    synthesizer = undefined;
+                    setIsProcessing(false);
+                }
+            );
+        } catch (error) {
+            console.error(`TTS ERROR: ${error}`);
+            setIsProcessing(false);
+        }
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage(inputMessage);
+        }
+    };
 
     const sttFromMic = async (): Promise<void> => {
         try {
@@ -54,7 +225,9 @@ export default function Chat() {
 
             recognizer.recognizeOnceAsync((result: any) => {
                 if (result.reason === speechsdk.ResultReason.RecognizedSpeech) {
-                    setDisplayText(`${result.text}`);
+                    setInputMessage(result.text);
+                    setIsVoiceInput(true); // Set voice input flag
+                    setDisplayText('Ask me anything....');
                 } else {
                     setDisplayText('ERROR: Speech was cancelled or could not be recognized. Ensure your microphone is working properly.');
                 }
@@ -70,25 +243,25 @@ export default function Chat() {
         const fetchGuestToken = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetch(
+
+                const response = await axios.post<TokenResponse>(
                     'https://hayleys-backend-api-v1-dmd4hra3ccaub7c2.canadacentral-01.azurewebsites.net/token/guest',
+                    {},
                     {
-                        method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                     }
                 );
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data: TokenResponse = await response.json();
+                const data = response.data;
 
                 // Set the token and session ID in state
                 setToken(data.access_token);
                 setSessionId(data.session_id);
+
+                // Set axios default headers with the token
+                axios.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
 
                 // Print token to console as requested
                 console.log('Guest Token:', data.access_token);
@@ -97,6 +270,11 @@ export default function Chat() {
 
             } catch (error) {
                 console.error('Error fetching guest token:', error);
+
+                if (axios.isAxiosError(error)) {
+                    console.error('Response status:', error.response?.status);
+                    console.error('Response data:', error.response?.data);
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -108,66 +286,100 @@ export default function Chat() {
     return (
         <div className="flex flex-col h-full">
             {/* Chat Messages Area - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-4">
-                <div className="w-full max-w-3xl mx-auto flex flex-col space-y-4">
-                    {/* Loading indicator */}
-                    {isLoading && (
-                        <div className="flex justify-center">
-                            <div className="text-gray-500">Loading...</div>
-                        </div>
-                    )}
+            <div className="flex-1 overflow-hidden">
+                <ScrollArea className="h-full p-4">
+                    <div className="w-full max-w-3xl mx-auto flex flex-col space-y-4">
+                        {/* Loading indicator */}
+                        {isLoading && (
+                            <div className="flex justify-center">
+                                <div className="text-gray-500">Loading...</div>
+                            </div>
+                        )}
 
-                    {/* Example User Message */}
-                    <div className="flex justify-end">
-                        <div className="bg-muted/60 text-muted/60-foreground-foreground p-2 rounded-xl max-w-[80%]">
-                            Hi how are you?
-                        </div>
-                    </div>
+                        {/* Chat Messages */}
+                        {messages.map((message) => (
+                            <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`p-3 rounded-lg max-w-[80%] ${
+                                    message.isUser
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-muted'
+                                }`}>
+                                    {message.content}
+                                </div>
+                            </div>
+                        ))}
 
-                    {/* Example Bot Message */}
-                    <div className="flex justify-start">
-                        <div className="p-3 rounded-lg max-w-[100%]">
-                            I am ready to assist you! How can I help?
-                        </div>
+                        {/* Typing indicator */}
+                        {isSending && (
+                            <div className="flex justify-start">
+                                <div className="bg-muted p-3 rounded-lg">
+                                    <div className="flex space-x-1">
+                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div ref={messagesEndRef} />
                     </div>
-                </div>
+                </ScrollArea>
             </div>
 
-            <div className="flex-shrink-0 p-1">
+            {/* Input Area */}
+            <div className="flex-shrink-0 p-4">
                 <Card className="w-full max-w-3xl mx-auto rounded-2xl p-2">
                     <CardContent className="p-0">
-                        <div className="flex items-center gap-2">
-                            {/*text input */}
-                            <Input
-                                placeholder={displayText}
-                                className="flex-grow border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                            />
-                            <Button variant="ghost" size="icon" >
-                                <Send className="h-5 w-5" />
-                            </Button>
-                        </div>
+                        <form onSubmit={handleSubmit}>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    value={inputMessage}
+                                    onChange={(e) => {
+                                        setInputMessage(e.target.value);
+                                        // Reset voice input flag when user types manually
+                                        if (isVoiceInput) {
+                                            setIsVoiceInput(false);
+                                        }
+                                    }}
+                                    onKeyPress={handleKeyPress}
+                                    placeholder={isProcessing ? displayText : "Ask me anything...."}
+                                    className="flex-grow border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                                    disabled={isSending || isLoading || !token}
+                                />
+                                <Button
+                                    type="submit"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={isSending || isLoading || !token || !inputMessage.trim()}
+                                >
+                                    <Send className="h-5 w-5" />
+                                </Button>
+                            </div>
+                        </form>
+
                         <div className="flex items-center gap-2 mt-3">
-                            <Button variant="ghost" size="icon" className="">
+                            <Button variant="ghost" size="icon">
                                 <Plus className="h-5 w-5" />
                             </Button>
 
-                            <Button variant="ghost" className="">
+                            <Button variant="ghost">
                                 <Search className="h-4 w-4" /> Deep Research
                             </Button>
-                            <Button variant="ghost" className="">
+
+                            <Button variant="ghost">
                                 <Layers className="h-4 w-4" /> Canvas
                             </Button>
 
                             <div className="flex-grow"></div>
 
-                            <Button size="icon"
+                            <Button
+                                size="icon"
                                 onClick={sttFromMic}
-                                disabled={isProcessing}
-                                className=""
+                                disabled={isProcessing || isSending || isLoading || !token}
                                 variant="ghost"
                             >
-                                <Mic className="h-4 w-4" />
-                                {/*{isProcessing ? 'Listening...':''}*/}
+                                <Mic className={`h-4 w-4 ${isProcessing ? 'text-red-500' : ''}`} />
                             </Button>
                         </div>
                     </CardContent>
