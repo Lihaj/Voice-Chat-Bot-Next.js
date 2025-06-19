@@ -10,11 +10,18 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Search, Layers, Mic, Send, Languages } from "lucide-react";
+import {Mic, Send, Languages, Copy, Check } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { getTokenOrRefresh } from '@/lib/token_util';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus, vs as vscLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useTheme } from "next-themes";
 
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const speechsdk = require('microsoft-cognitiveservices-speech-sdk');
 
 interface TokenResponse {
@@ -26,6 +33,7 @@ interface TokenResponse {
 interface TokenObject {
     authToken: string | null;
     region: string;
+    //eslint-disable-next-line  @typescript-eslint/no-explicit-any
     error?: any;
 }
 
@@ -59,11 +67,15 @@ interface Language {
 const languages: Language[] = [
     { code: 'en-US', name: 'English' },
     { code: 'si-LK', name: 'Sinhala' },
-    { code: 'ta-IN', name: 'Tamil' }
+    { code: 'ta-IN', name: 'Tamil' },
+    { code:'fr-FR',  name:'French'},
+    { code:'hi-IN',  name:'Hindi'}
 ];
 
 export default function Home() {
+    const { theme } = useTheme();
     const [token, setToken] = useState<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -75,12 +87,45 @@ export default function Home() {
 
     const [displayText, setDisplayText] = useState<string>('Ask me anything....');
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any,@typescript-eslint/no-unused-vars
     const [player, updatePlayer] = useState<any>({ p: undefined, muted: false });
+    const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    const generateCodeBlockId = (line: number, language: string): string => {
+        return `code-${line}-${language}-${Date.now()}`;
+    };
+
+    const handleCopyCode = async (code: string, codeBlockId: string) => {
+        try {
+            await navigator.clipboard.writeText(code);
+            setCopiedCodeBlock(codeBlockId);
+            setTimeout(() => setCopiedCodeBlock(null), 2000);
+        } catch (err) {
+            console.error('Failed to copy code:', err);
+        }
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any,@typescript-eslint/no-unused-vars
+    const containsPre = (children: any): boolean => {
+        if (Array.isArray(children)) {
+            return children.some(child =>
+                child?.type === 'pre' ||
+                (child?.props && containsPre(child.props.children))
+            );
+        }
+        return false;
+    };
+
+    const preprocessMarkdown = (content: string): string => {
+        return content;
     };
 
     useEffect(() => {
@@ -129,7 +174,6 @@ export default function Home() {
 
             setMessages(prev => [...prev, botMessage]);
 
-            // Check if response indicates voice output should be played
             if (response.data.is_voice === true) {
                 console.log('Voice response detected, starting TTS...');
                 await textToSpeech(responseText);
@@ -153,7 +197,6 @@ export default function Home() {
             }
         } finally {
             setIsSending(false);
-            // Reset voice input flag after sending
             setIsVoiceInput(false);
         }
     };
@@ -176,20 +219,27 @@ export default function Home() {
 
             const speechConfig = speechsdk.SpeechConfig.fromAuthorizationToken(tokenObj.authToken, tokenObj.region);
 
-            // Set voice based on selected language
             switch (selectedLanguage.code) {
                 case 'si-LK':
-                    speechConfig.speechSynthesisVoiceName = "si-LK-ThiliniNeural";
+                    speechConfig.speechSynthesisVoiceName = "en-US-AvaMultilingualNeural";
                     break;
                 case 'ta-IN':
                     speechConfig.speechSynthesisVoiceName = "ta-IN-PallaviNeural";
                     break;
+                case 'fr-FR':
+                    speechConfig.speechSynthesisVoiceName = "en-US-AvaMultilingualNeural";
+                    break;
+                case 'hi-IN':
+                    speechConfig.speechSynthesisVoiceName = "en-US-AvaMultilingualNeural";
+                    break;
                 default:
-                    speechConfig.speechSynthesisVoiceName = "en-US-JennyNeural";
+                    speechConfig.speechSynthesisVoiceName = "en-US-AvaMultilingualNeural";
             }
 
             const myPlayer = new speechsdk.SpeakerAudioDestination();
 
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
             updatePlayer(p => ({ p: myPlayer, muted: p.muted }));
             const audioConfig = speechsdk.AudioConfig.fromSpeakerOutput(myPlayer);
 
@@ -197,8 +247,11 @@ export default function Home() {
 
             console.log(`Speaking text: ${textToSpeak} in language: ${selectedLanguage.name}`);
 
+
             synthesizer.speakTextAsync(
                 textToSpeak,
+
+                //eslint-disable-next-line  @typescript-eslint/no-explicit-any
                 (result: any) => {
                     let text: string;
                     if (result.reason === speechsdk.ResultReason.SynthesizingAudioCompleted) {
@@ -254,10 +307,12 @@ export default function Home() {
 
             setDisplayText(`Listening in ${selectedLanguage.name}...`);
 
+
+            //eslint-disable-next-line  @typescript-eslint/no-explicit-any
             recognizer.recognizeOnceAsync((result: any) => {
                 if (result.reason === speechsdk.ResultReason.RecognizedSpeech) {
                     setInputMessage(result.text);
-                    setIsVoiceInput(true); // Set voice input flag
+                    setIsVoiceInput(true);
                     setDisplayText('Ask me anything....');
                 } else {
                     setDisplayText('ERROR: Speech was cancelled or could not be recognized. Ensure your microphone is working properly.');
@@ -292,14 +347,11 @@ export default function Home() {
 
                 const data = response.data;
 
-                // Set the token and session ID in state
                 setToken(data.access_token);
                 setSessionId(data.session_id);
 
-                // Set axios default headers with the token
                 axios.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
 
-                // Print token to console as requested
                 console.log('Guest Token:', data.access_token);
                 console.log('Session ID:', data.session_id);
                 console.log('Full Response:', data);
@@ -319,28 +371,217 @@ export default function Home() {
         fetchGuestToken();
     }, []);
 
+    const syntaxTheme = theme === 'dark' ? vscDarkPlus : vscLight;
+
+
+
     return (
         <div className="flex flex-col h-full">
-            {/* Chat Messages Area - Scrollable */}
             <div className="flex-1 overflow-hidden">
                 <ScrollArea className="h-full p-4">
                     <div className="w-full max-w-3xl mx-auto flex flex-col space-y-4">
-                        {/* Loading indicator */}
                         {isLoading && (
                             <div className="flex justify-center">
                                 <div className="">Loading...</div>
                             </div>
                         )}
 
-                        {/* Chat Messages */}
                         {messages.map((message) => (
                             <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`p-3 rounded-lg max-w-[80%] ${
+                                <div className={`p-3 rounded-lg ${
                                     message.isUser
-                                        ? 'bg-muted/70 text-muted/70-foreground'
-                                        : ''
+                                        ? 'max-w-[80%] bg-muted/50 text-muted/50-foreground'
+                                        : 'max-w-[100%]'
                                 }`}>
-                                    {message.content}
+                                    {message.isUser ? (
+                                        <div>{message.content}</div>
+                                    ) : (
+                                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+
+                                                components={{
+                                                    code({ node, className, children, ...props }) {
+                                                        const match = /language-(\w+)/.exec(className || "");
+                                                        const language = match ? match[1] : "";
+                                                        const codeBlockId = generateCodeBlockId(
+                                                            node?.position?.start.line || 0,
+                                                            language
+                                                        );
+                                                        const codeContent = String(children).replace(/\n$/, "");
+
+                                                        // This is the corrected logic: it now checks for 'match' instead of 'inline'
+                                                        return match ? (
+                                                            <div className="relative group my-4 rounded-md border bg-muted">
+                                                                <div className="flex items-center justify-between px-4 py-2 border-b">
+                <span className="text-xs text-muted-foreground font-mono">
+                    {language || "text"}
+                </span>
+                                                                    {message.id !== streamingMessageId && (
+                                                                        <button
+                                                                            onClick={() =>
+                                                                                handleCopyCode(codeContent, codeBlockId)
+                                                                            }
+                                                                            className="text-muted-foreground hover:text-foreground transition-colors"
+                                                                            aria-label="Copy code"
+                                                                        >
+                                                                            {copiedCodeBlock === codeBlockId ? (
+                                                                                <Check
+                                                                                    size={16}
+                                                                                    className="text-green-500"
+                                                                                />
+                                                                            ) : (
+                                                                                <Copy size={16} />
+                                                                            )}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                <SyntaxHighlighter
+                                                                    language={language || "text"}
+                                                                    style={syntaxTheme}
+                                                                    customStyle={{
+                                                                        margin: 0,
+                                                                        padding: "1rem",
+                                                                        backgroundColor: "transparent",
+                                                                    }}
+                                                                    wrapLongLines={true}
+                                                                >
+                                                                    {codeContent}
+                                                                </SyntaxHighlighter>
+                                                            </div>
+                                                        ) : (
+                                                            <code
+                                                                className="bg-muted px-1.5 py-1 rounded-sm font-mono text-sm"
+                                                                {...props}
+                                                            >
+                                                                {children}
+                                                            </code>
+                                                        );
+                                                    },
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    h1: ({ node, ...props }) => (
+                                                        <h1
+                                                            className="text-3xl font-bold mt-8 mb-4 pb-2 border-b"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    h2: ({ node, ...props }) => (
+                                                        <h2
+                                                            className="text-2xl font-bold mt-6 mb-3"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    h3: ({ node, ...props }) => (
+                                                        <h3
+                                                            className="text-xl font-bold mt-5 mb-2 "
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    h4: ({ node, ...props }) => (
+                                                        <h4
+                                                            className="text-lg font-bold mt-4 mb-2 "
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    h5: ({ node, ...props }) => (
+                                                        <h5
+                                                            className="text-base font-bold mt-3 mb-1 "
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    h6: ({ node, ...props }) => (
+                                                        <h6
+                                                            className="text-sm font-bold mt-3 mb-1"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    p: ({ node, ...props }) => (
+                                                        <p className="mb-4 leading-relaxed" {...props} />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    ul: ({ node, ...props }) => (
+                                                        <ul
+                                                            className="list-disc pl-6 mb-4 space-y-2"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    ol: ({ node, ...props }) => (
+                                                        <ol
+                                                            className="list-decimal pl-6 mb-4 space-y-2"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    li: ({ node, ...props }) => (
+                                                        <li className="mb-1" {...props} />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    a: ({ node, ...props }) => (
+                                                        <a
+                                                            className="text-primary hover:underline"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    blockquote: ({ node, ...props }) => (
+                                                        <blockquote
+                                                            className="border-l-4 border-border pl-4 italic text-muted-foreground my-4"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    strong: ({ node, ...props }) => (
+                                                        <strong className="font-bold" {...props} />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    em: ({ node, ...props }) => <em className="italic" {...props} />,
+                                                    hr: () => <hr className="my-6 border-border" />,
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    table: ({ node, ...props }) => (
+                                                        <div className="overflow-x-auto my-6">
+                                                            <table
+                                                                className="min-w-full border rounded"
+                                                                {...props}
+                                                            />
+                                                        </div>
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    thead: ({ node, ...props }) => <thead {...props} />,
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    tbody: ({ node, ...props }) => (
+                                                        <tbody
+                                                            className="divide-y divide-border"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    tr: ({ node, ...props }) => (
+                                                        <tr className="hover:bg-muted" {...props} />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    th: ({ node, ...props }) => (
+                                                        <th
+                                                            className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider border-b"
+                                                            {...props}
+                                                        />
+                                                    ),
+                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                                    td: ({ node, ...props }) => (
+                                                        <td className="px-4 py-3" {...props} />
+                                                    ),
+                                                }}
+                                            >
+                                                {preprocessMarkdown(message.content)}
+                                            </ReactMarkdown>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -350,7 +591,6 @@ export default function Home() {
                 </ScrollArea>
             </div>
 
-            {/* Input Area */}
             <div className="flex-shrink-0 p-4">
                 <Card className="w-full max-w-3xl mx-auto rounded-2xl p-2">
                     <CardContent className="p-0">
@@ -360,7 +600,6 @@ export default function Home() {
                                     value={inputMessage}
                                     onChange={(e) => {
                                         setInputMessage(e.target.value);
-                                        // Reset voice input flag when user types manually
                                         if (isVoiceInput) {
                                             setIsVoiceInput(false);
                                         }
@@ -382,13 +621,8 @@ export default function Home() {
                         </form>
 
                         <div className="flex items-center gap-2 mt-3">
-                            <Button variant="ghost" size="icon">
-                                <Plus className="h-5 w-5" />
-                            </Button>
-
                             <div className="flex-grow"></div>
 
-                            {/* Language Selector Dropdown */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button

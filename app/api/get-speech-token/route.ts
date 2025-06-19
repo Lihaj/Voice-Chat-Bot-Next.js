@@ -12,6 +12,7 @@ interface ErrorResponse {
     message: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(request: NextRequest): Promise<NextResponse<TokenResponse | ErrorResponse>> {
     try {
         const speechKey: string | undefined = process.env.SPEECH_KEY;
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<TokenRespo
             return NextResponse.json(
                 {
                     error: 'Configuration Error',
-                    message: 'You forgot to add your speech key or region to the .env.local.local file.'
+                    message: 'You forgot to add your speech key or region to the .env.local file.'
                 },
                 { status: 400 }
             );
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<TokenRespo
             token: tokenResponse.data,
             region: speechRegion
         });
-
+        //eslint-disable-next-line  @typescript-eslint/no-explicit-any
     } catch (error: any) {
         console.error('Error authorizing speech key:', error.response?.data || error.message);
 

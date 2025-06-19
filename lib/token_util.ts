@@ -5,6 +5,7 @@ import Cookie from 'universal-cookie';
 export interface TokenObject {
     authToken: string | null;
     region: string;
+    //eslint-disable-next-line  @typescript-eslint/no-explicit-any
     error?: any;
 }
 
@@ -34,6 +35,7 @@ export async function getTokenOrRefresh(): Promise<TokenObject> {
                 authToken: token,
                 region: region
             };
+            //eslint-disable-next-line  @typescript-eslint/no-explicit-any
         } catch (err: any) {
             console.error('Error fetching token:', err.response?.data || err.message);
             return {
@@ -43,7 +45,7 @@ export async function getTokenOrRefresh(): Promise<TokenObject> {
             };
         }
     } else {
-        console.log('Token fetched from cookie: ' + speechToken);
+        // console.log('Token fetched from cookie: ' + speechToken);
         const idx: number = speechToken.indexOf(':');
 
         if (idx === -1) {

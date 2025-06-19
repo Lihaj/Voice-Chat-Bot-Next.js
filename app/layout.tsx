@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ModeToggle } from "@/components/mode-toggle"
 import "./globals.css";
 import React from "react";
+import Image from 'next/image'
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -39,8 +39,17 @@ export default function RootLayout({
             <SidebarProvider>
                 {/*<AppSidebar />*/}
                 <main className="flex flex-col h-screen w-full">
-                    <header className="flex justify-between items-center p-2 border-b flex-shrink-0">
+                    <header className="flex justify-between items-center px-5 p-2 border-b flex-shrink-0">
                         {/*<SidebarTrigger />*/}
+                        <div className="p-2 rounded-xl bg-white">
+                            <Image
+                                src="/logo.png"
+                                width={80}
+                                height={80}
+                                alt="logo"
+                            />
+                        </div>
+
                         <div className="flex-grow"></div>
 
                         <ModeToggle />

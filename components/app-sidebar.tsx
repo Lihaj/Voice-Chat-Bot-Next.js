@@ -1,4 +1,4 @@
-import { Calendar, Home, Inbox, Search, Settings, MessageCircle,CircleFadingPlus,X} from "lucide-react"
+import { Home, Inbox, CircleFadingPlus,X} from "lucide-react"
 
 import {
     Sidebar,
@@ -28,11 +28,11 @@ const items = [
 ]
 
 // Add your new chat menu item details here
-const newChatItem = {
-    title: "New Chat",
-    url: "#", // Replace with the actual URL if needed
-    icon: MessageCircle,
-}
+// const newChatItem = {
+//     title: "New Chat",
+//     url: "#", // Replace with the actual URL if needed
+//     icon: MessageCircle,
+// }
 
 export function AppSidebar() {
     return (
