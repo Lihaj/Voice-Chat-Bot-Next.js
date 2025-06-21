@@ -10,7 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {Mic, Send, Languages, Copy, Check } from "lucide-react";
+import {Mic, Send, Languages, Copy, Check, Bot} from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { getTokenOrRefresh } from '@/lib/token_util';
 import axios from 'axios';
@@ -380,11 +380,13 @@ export default function Home() {
             <div className="flex-1 overflow-hidden">
                 <ScrollArea className="h-full p-4">
                     <div className="w-full max-w-3xl mx-auto flex flex-col space-y-4">
+
                         {isLoading && (
                             <div className="flex justify-center">
-                                <div className="">Loading...</div>
+                                <div className="">Almost ready to chat!</div>
                             </div>
                         )}
+
 
                         {messages.map((message) => (
                             <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
@@ -393,198 +395,116 @@ export default function Home() {
                                         ? 'max-w-[80%] bg-muted/50 text-muted/50-foreground'
                                         : 'max-w-[100%]'
                                 }`}>
-                                    {message.isUser ? (
-                                        <div>{message.content}</div>
-                                    ) : (
-                                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                                            <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-
-                                                components={{
-                                                    code({ node, className, children, ...props }) {
-                                                        const match = /language-(\w+)/.exec(className || "");
-                                                        const language = match ? match[1] : "";
-                                                        const codeBlockId = generateCodeBlockId(
-                                                            node?.position?.start.line || 0,
-                                                            language
-                                                        );
-                                                        const codeContent = String(children).replace(/\n$/, "");
-
-                                                        // This is the corrected logic: it now checks for 'match' instead of 'inline'
-                                                        return match ? (
-                                                            <div className="relative group my-4 rounded-md border bg-muted">
-                                                                <div className="flex items-center justify-between px-4 py-2 border-b">
-                <span className="text-xs text-muted-foreground font-mono">
-                    {language || "text"}
-                </span>
-                                                                    {message.id !== streamingMessageId && (
-                                                                        <button
-                                                                            onClick={() =>
-                                                                                handleCopyCode(codeContent, codeBlockId)
-                                                                            }
-                                                                            className="text-muted-foreground hover:text-foreground transition-colors"
-                                                                            aria-label="Copy code"
-                                                                        >
-                                                                            {copiedCodeBlock === codeBlockId ? (
-                                                                                <Check
-                                                                                    size={16}
-                                                                                    className="text-green-500"
-                                                                                />
-                                                                            ) : (
-                                                                                <Copy size={16} />
-                                                                            )}
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                                <SyntaxHighlighter
-                                                                    language={language || "text"}
-                                                                    style={syntaxTheme}
-                                                                    customStyle={{
-                                                                        margin: 0,
-                                                                        padding: "1rem",
-                                                                        backgroundColor: "transparent",
-                                                                    }}
-                                                                    wrapLongLines={true}
-                                                                >
-                                                                    {codeContent}
-                                                                </SyntaxHighlighter>
-                                                            </div>
-                                                        ) : (
-                                                            <code
-                                                                className="bg-muted px-1.5 py-1 rounded-sm font-mono text-sm"
-                                                                {...props}
-                                                            >
-                                                                {children}
-                                                            </code>
-                                                        );
-                                                    },
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    h1: ({ node, ...props }) => (
-                                                        <h1
-                                                            className="text-3xl font-bold mt-8 mb-4 pb-2 border-b"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    h2: ({ node, ...props }) => (
-                                                        <h2
-                                                            className="text-2xl font-bold mt-6 mb-3"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    h3: ({ node, ...props }) => (
-                                                        <h3
-                                                            className="text-xl font-bold mt-5 mb-2 "
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    h4: ({ node, ...props }) => (
-                                                        <h4
-                                                            className="text-lg font-bold mt-4 mb-2 "
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    h5: ({ node, ...props }) => (
-                                                        <h5
-                                                            className="text-base font-bold mt-3 mb-1 "
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    h6: ({ node, ...props }) => (
-                                                        <h6
-                                                            className="text-sm font-bold mt-3 mb-1"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    p: ({ node, ...props }) => (
-                                                        <p className="mb-4 leading-relaxed" {...props} />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    ul: ({ node, ...props }) => (
-                                                        <ul
-                                                            className="list-disc pl-6 mb-4 space-y-2"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    ol: ({ node, ...props }) => (
-                                                        <ol
-                                                            className="list-decimal pl-6 mb-4 space-y-2"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    li: ({ node, ...props }) => (
-                                                        <li className="mb-1" {...props} />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    a: ({ node, ...props }) => (
-                                                        <a
-                                                            className="text-primary hover:underline"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    blockquote: ({ node, ...props }) => (
-                                                        <blockquote
-                                                            className="border-l-4 border-border pl-4 italic text-muted-foreground my-4"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    strong: ({ node, ...props }) => (
-                                                        <strong className="font-bold" {...props} />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    em: ({ node, ...props }) => <em className="italic" {...props} />,
-                                                    hr: () => <hr className="my-6 border-border" />,
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    table: ({ node, ...props }) => (
-                                                        <div className="overflow-x-auto my-6">
-                                                            <table
-                                                                className="min-w-full border rounded"
-                                                                {...props}
-                                                            />
-                                                        </div>
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    thead: ({ node, ...props }) => <thead {...props} />,
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    tbody: ({ node, ...props }) => (
-                                                        <tbody
-                                                            className="divide-y divide-border"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    tr: ({ node, ...props }) => (
-                                                        <tr className="hover:bg-muted" {...props} />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    th: ({ node, ...props }) => (
-                                                        <th
-                                                            className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider border-b"
-                                                            {...props}
-                                                        />
-                                                    ),
-                                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                                    td: ({ node, ...props }) => (
-                                                        <td className="px-4 py-3" {...props} />
-                                                    ),
-                                                }}
-                                            >
-                                                {preprocessMarkdown(message.content)}
-                                            </ReactMarkdown>
-                                        </div>
-                                    )}
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        components={{
+                                            h1: ({ node, ...props }) => (
+                                                <h1 className="text-2xl font-bold mb-2" {...props} />
+                                            ),
+                                            h2: ({ node, ...props }) => (
+                                                <h2 className="text-xl font-semibold mb-2" {...props} />
+                                            ),
+                                            h3: ({ node, ...props }) => (
+                                                <h3 className="text-lg font-medium mb-2" {...props} />
+                                            ),
+                                            a: ({ node, ...props }) => (
+                                                <a className="text-blue-600 hover:text-blue-800 underline" {...props} />
+                                            ),
+                                            p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                                            ol: ({ node, ...props }) => (
+                                                <ol className="list-decimal pl-6 mb-2" {...props} />
+                                            ),
+                                            ul: ({ node, ...props }) => (
+                                                <ul className="list-disc pl-6 mb-2" {...props} />
+                                            ),
+                                            li: ({ node, ...props }) => <li className="mb-1 " {...props} />,
+                                            table: ({ node, ...props }) => (
+                                                <table
+                                                    className="table-auto border border-muted my-4 w-full text-left"
+                                                    {...props}
+                                                />
+                                            ),
+                                            thead: ({ node, ...props }) => (
+                                                <thead className="bg-muted/80" {...props} />
+                                            ),
+                                            th: ({ node, ...props }) => (
+                                                <th className="border border-muted px-4 py-2 font-semibold" {...props} />
+                                            ),
+                                            td: ({ node, ...props }) => (
+                                                <td className="border border-muted px-4 py-2" {...props} />
+                                            ),
+                                            tr: ({ node, ...props }) => (
+                                                <tr className="hover:bg-muted/80" {...props} />
+                                            ),
+                                            blockquote: ({ node, ...props }) => (
+                                                <blockquote
+                                                    className="rounded-xl pl-2 py-1 my-2 bg-muted/80 italic text-muted/80-foreground"
+                                                    {...props}
+                                                />
+                                            ),
+                                            // Highlighted code blocks
+                                            code({ node, inline, className, children, ...props }) {
+                                                const match = /language-(\w+)/.exec(className || '');
+                                                return !inline && match ? (
+                                                    <SyntaxHighlighter
+                                                        style={vscDarkPlus}
+                                                        language={match[1]}
+                                                        PreTag="div"
+                                                        {...props}
+                                                    >
+                                                        {String(children).replace(/\n$/, '')}
+                                                    </SyntaxHighlighter>
+                                                ) : (
+                                                    <code className={className} {...props}>
+                                                        {children}
+                                                    </code>
+                                                );
+                                            },
+                                        }}
+                                    >
+                                        {message.content}
+                                    </ReactMarkdown>
                                 </div>
                             </div>
                         ))}
+
+                        {/* Loading indicator when bot is thinking */}
+                        {isSending && (
+                            <div className="flex gap-3 justify-start">
+                                <div className="flex items-center gap-2 rounded-lg px-4 py-2">
+                                    <div className="thinking-animation">
+                                        Thinking...
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <style jsx>{`
+                            .thinking-animation {
+                                background: linear-gradient(90deg,
+                                #0a0a0a 0%,
+                                #5c5b5b 25%,
+                                #919191 50%,
+                                #b5b2b2 75%,
+                                #0a0a0a 100%
+                                );
+                                background-size: 200% 100%;
+                                background-clip: text;
+                                -webkit-background-clip: text;
+                                -webkit-text-fill-color: transparent;
+                                animation: gradient-slide 2s ease-in-out infinite;
+                                font-size: 0.875rem;
+                            }
+
+                            @keyframes gradient-slide {
+                                0% {
+                                    background-position: 200% 0;
+                                }
+                                100% {
+                                    background-position: -200% 0;
+                                }
+                            }
+                        `}</style>
 
                         <div ref={messagesEndRef} />
                     </div>
