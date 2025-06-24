@@ -10,15 +10,15 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {Mic, Send, Languages, Copy, Check, Bot} from "lucide-react";
+import {Mic, Send, Languages} from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { getTokenOrRefresh } from '@/lib/token_util';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus, vs as vscLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { useTheme } from "next-themes";
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
 
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -73,7 +73,7 @@ const languages: Language[] = [
 ];
 
 export default function Home() {
-    const { theme } = useTheme();
+
     const [token, setToken] = useState<string | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [sessionId, setSessionId] = useState<string | null>(null);
@@ -89,29 +89,15 @@ export default function Home() {
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any,@typescript-eslint/no-unused-vars
     const [player, updatePlayer] = useState<any>({ p: undefined, muted: false });
-    const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
-
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    const generateCodeBlockId = (line: number, language: string): string => {
-        return `code-${line}-${language}-${Date.now()}`;
-    };
 
-    const handleCopyCode = async (code: string, codeBlockId: string) => {
-        try {
-            await navigator.clipboard.writeText(code);
-            setCopiedCodeBlock(codeBlockId);
-            setTimeout(() => setCopiedCodeBlock(null), 2000);
-        } catch (err) {
-            console.error('Failed to copy code:', err);
-        }
-    };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any,@typescript-eslint/no-unused-vars
     const containsPre = (children: any): boolean => {
@@ -122,10 +108,6 @@ export default function Home() {
             );
         }
         return false;
-    };
-
-    const preprocessMarkdown = (content: string): string => {
-        return content;
     };
 
     useEffect(() => {
@@ -156,7 +138,7 @@ export default function Home() {
             console.log('Sending chat request:', chatRequest);
 
             const response = await axios.post<ChatResponse>(
-                'https://hayleys-backend-api-v1-dmd4hra3ccaub7c2.canadacentral-01.azurewebsites.net/chat',
+                'http://127.0.0.1:8000/chat',
                 chatRequest
             );
 
@@ -336,7 +318,7 @@ export default function Home() {
                 setIsLoading(true);
 
                 const response = await axios.post<TokenResponse>(
-                    'https://hayleys-backend-api-v1-dmd4hra3ccaub7c2.canadacentral-01.azurewebsites.net/token/guest',
+                    'http://127.0.0.1:8000/token/guest',
                     {},
                     {
                         headers: {
@@ -371,9 +353,6 @@ export default function Home() {
         fetchGuestToken();
     }, []);
 
-    const syntaxTheme = theme === 'dark' ? vscDarkPlus : vscLight;
-
-
 
     return (
         <div className="flex flex-col h-full">
@@ -398,44 +377,58 @@ export default function Home() {
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             h1: ({ node, ...props }) => (
                                                 <h1 className="text-2xl font-bold mb-2" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             h2: ({ node, ...props }) => (
                                                 <h2 className="text-xl font-semibold mb-2" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             h3: ({ node, ...props }) => (
                                                 <h3 className="text-lg font-medium mb-2" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             a: ({ node, ...props }) => (
                                                 <a className="text-blue-600 hover:text-blue-800 underline" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             ol: ({ node, ...props }) => (
                                                 <ol className="list-decimal pl-6 mb-2" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             ul: ({ node, ...props }) => (
                                                 <ul className="list-disc pl-6 mb-2" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             li: ({ node, ...props }) => <li className="mb-1 " {...props} />,
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             table: ({ node, ...props }) => (
                                                 <table
                                                     className="table-auto border border-muted my-4 w-full text-left"
                                                     {...props}
                                                 />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             thead: ({ node, ...props }) => (
                                                 <thead className="bg-muted/80" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             th: ({ node, ...props }) => (
                                                 <th className="border border-muted px-4 py-2 font-semibold" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             td: ({ node, ...props }) => (
                                                 <td className="border border-muted px-4 py-2" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             tr: ({ node, ...props }) => (
                                                 <tr className="hover:bg-muted/80" {...props} />
                                             ),
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                             blockquote: ({ node, ...props }) => (
                                                 <blockquote
                                                     className="rounded-xl pl-2 py-1 my-2 bg-muted/80 italic text-muted/80-foreground"
@@ -443,15 +436,17 @@ export default function Home() {
                                                 />
                                             ),
                                             // Highlighted code blocks
-                                            code({ node, inline, className, children, ...props }) {
+                                            code({ className, children, ...props }) {
                                                 const match = /language-(\w+)/.exec(className || '');
-                                                return !inline && match ? (
+                                                const isCodeBlock = match && React.isValidElement(children) === false;
+
+                                                return isCodeBlock ? (
                                                     <SyntaxHighlighter
-                                                        style={vscDarkPlus}
+                                                        style={ vscDarkPlus }
                                                         language={match[1]}
                                                         PreTag="div"
                                                         {...props}
-                                                    >
+                                                     >
                                                         {String(children).replace(/\n$/, '')}
                                                     </SyntaxHighlighter>
                                                 ) : (
