@@ -16,9 +16,6 @@ import { getTokenOrRefresh } from '@/lib/token_util';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
 
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -138,7 +135,7 @@ export default function Home() {
             console.log('Sending chat request:', chatRequest);
 
             const response = await axios.post<ChatResponse>(
-                'http://127.0.0.1:8000/chat',
+                'https://hayleys-backend-api-v1-dmd4hra3ccaub7c2.canadacentral-01.azurewebsites.net/chat',
                 chatRequest
             );
 
@@ -318,7 +315,7 @@ export default function Home() {
                 setIsLoading(true);
 
                 const response = await axios.post<TokenResponse>(
-                    'http://127.0.0.1:8000/token/guest',
+                    'https://hayleys-backend-api-v1-dmd4hra3ccaub7c2.canadacentral-01.azurewebsites.net/token/guest',
                     {},
                     {
                         headers: {
@@ -434,27 +431,7 @@ export default function Home() {
                                                     className="rounded-xl pl-2 py-1 my-2 bg-muted/80 italic text-muted/80-foreground"
                                                     {...props}
                                                 />
-                                            ),
-                                            // Highlighted code blocks
-                                            code({ className, children, ...props }) {
-                                                const match = /language-(\w+)/.exec(className || '');
-                                                const isCodeBlock = match && React.isValidElement(children) === false;
-
-                                                return isCodeBlock ? (
-                                                    <SyntaxHighlighter
-                                                        style={ vscDarkPlus }
-                                                        language={match[1]}
-                                                        PreTag="div"
-                                                        {...props}
-                                                     >
-                                                        {String(children).replace(/\n$/, '')}
-                                                    </SyntaxHighlighter>
-                                                ) : (
-                                                    <code className={className} {...props}>
-                                                        {children}
-                                                    </code>
-                                                );
-                                            },
+                                            )
                                         }}
                                     >
                                         {message.content}
