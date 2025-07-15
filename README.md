@@ -435,3 +435,4 @@ export async function getTokenOrRefresh(): Promise<TokenObject> {
 - Returns token: Provides the authToken and region for use with the Speech SDK.
 
 By using SpeechConfig.fromAuthorizationToken with the retrieved ephemeral token, this setup prevents your raw Speech service subscription key from being exposed in the browser, enhancing security.
+
